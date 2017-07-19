@@ -34,11 +34,21 @@ class Preprocessor:
             total_seg_list.append(each)
         for each in neg_seg_list:
             total_seg_list.append(each)
-        pos_words_tfidf = self.compute_TF_IDF(pos_words_set, pos_freq_dist, pos_words_num, total_seg_list)
-        neg_words_tfidf = self.compute_TF_IDF(neg_words_set, neg_freq_dist, neg_words_num, total_seg_list)
-        pos_words_tfidf = self.sort_by_value(pos_words_tfidf)
-        neg_words_tfidf = self.sort_by_value(neg_words_tfidf)
-        self.features = self.feature_list(pos_words_tfidf, 75, neg_words_tfidf, 75)
+        # pos_words_tfidf = self.compute_TF_IDF(pos_words_set, pos_freq_dist, pos_words_num, total_seg_list)
+        # neg_words_tfidf = self.compute_TF_IDF(neg_words_set, neg_freq_dist, neg_words_num, total_seg_list)
+        pos_words_PMI = self.PMI(pos_words_set, pos_seg_list, len(pos_seg_list) / len(total_seg_list))
+        neg_words_PMI = self.PMI(neg_words_set, neg_seg_list, len(neg_seg_list) / len(total_seg_list))
+        # pos_words_Chi_square = self.Chi_square(pos_words_set, pos_seg_list, total_seg_list)
+        # neg_words_Chi_square = self.Chi_square(neg_words_set, neg_seg_list, total_seg_list)
+        # pos_words_tfidf = self.sort_by_value(pos_words_tfidf)
+        # neg_words_tfidf = self.sort_by_value(neg_words_tfidf)
+        pos_words_PMI = self.sort_by_value(pos_words_PMI)
+        neg_words_PMI = self.sort_by_value(neg_words_PMI)
+        # pos_words_Chi_square = self.sort_by_value(pos_words_Chi_square)
+        # neg_words_Chi_square = self.sort_by_value(neg_words_Chi_square)
+        print(pos_words_PMI)
+        print(neg_words_PMI)
+        self.features = self.feature_list(pos_words_PMI, 80, neg_words_PMI, 80)
         self.save_feature_model(self.features)
         self.create_train_csv(self.features, pos_freq_dist, neg_freq_dist)
 
@@ -184,6 +194,36 @@ class Preprocessor:
                 local_vec.append(str(sentence[each]))
             word_vec.append(local_vec)
         return word_vec
+
+    def PMI(self, words_set, seg_list, prob):
+        PMI_words = {}
+        for each in words_set:
+            occur = 0
+            for sent in seg_list:
+                if each in sent:
+                    occur += 1
+            word_prob = occur / len(seg_list)
+            PMI_words[each] = math.log(word_prob / prob)
+        return PMI_words
+
+    def Chi_square(self, words, seg_list, total_seg_list):
+        total_num = len(total_seg_list)
+        prob = len(seg_list) / len(total_seg_list)
+        Chi_square_words = {}
+        for word in words:
+            occur_in_class = 0
+            occur_in_all = 0
+            for each in seg_list:
+                if word in each:
+                    occur_in_class += 1
+            for each in total_seg_list:
+                if word in each:
+                    occur_in_all += 1
+            prob_in_class = occur_in_class / len(seg_list)
+            prob_in_all = occur_in_all / len(total_seg_list)
+            Chi_square_words[word] = total_num * prob_in_all ** 2 * (prob_in_class - prob) ** 2 /\
+                                    (prob_in_all * (1 - prob_in_all) * prob * (1 - prob))
+        return Chi_square_words
 
 if __name__ == '__main__':
     processor = Preprocessor()

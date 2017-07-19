@@ -1,5 +1,6 @@
 #coding:utf-8
 import pandas as pd
+import numpy as np
 import os
 import codecs
 import pickle
@@ -17,6 +18,7 @@ from sklearn.linear_model import Perceptron
 from sklearn.linear_model import SGDClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import learning_curve
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.feature_selection import SelectFromModel
@@ -54,7 +56,7 @@ class SentimentClassifier:
             pickle.dump(self.model, f)
 
     def train(self):
-            self.model = LinearSVC(random_state=7)
+            self.model = LogisticRegression(random_state=3)
             self.model.fit(self.X_train, self.y_train)
             self.save_model()
             print('Accuracy: ' + str(round(self.model.score(self.X_val, self.y_val), 2)))
@@ -81,6 +83,34 @@ class SentimentClassifier:
             plt.yticks(rotation=360)
             plt.suptitle('The Heatmap of Correlation With ' + target)
             plt.show()
+
+    def plot_learning_curve(self):
+        # Plot the learning curve
+        plt.figure(figsize=(9, 6))
+        train_sizes, train_scores, test_scores = learning_curve(
+            self.model, X=self.X_train, y=self.y_train,
+            cv=3, scoring='neg_mean_squared_error')
+        self.plot_learning_curve_helper(train_sizes, train_scores, test_scores, 'Learning Curve')
+        plt.show()
+
+    def plot_learning_curve_helper(self, train_sizes, train_scores, test_scores, title, alpha=0.1):
+        train_scores = -train_scores
+        test_scores = -test_scores
+        train_mean = np.mean(train_scores, axis=1)
+        train_std = np.std(train_scores, axis=1)
+        test_mean = np.mean(test_scores, axis=1)
+        test_std = np.std(test_scores, axis=1)
+        plt.plot(train_sizes, train_mean, label='train score', color='blue', marker='o')
+        plt.fill_between(train_sizes, train_mean + train_std,
+                         train_mean - train_std, color='blue', alpha=alpha)
+        plt.plot(train_sizes, test_mean, label='test score', color='red', marker='o')
+        plt.fill_between(train_sizes, test_mean + test_std, test_mean - test_std, color='red', alpha=alpha)
+        plt.title(title)
+        plt.xlabel('Number of training points')
+        plt.ylabel(r'Mean Squared Error')
+        plt.grid(ls='--')
+        plt.legend(loc='best')
+        plt.show()
 
     # def feature_reduction(self, X_train, y_train, X_val):
     #     thresh = 5 * 10 ** (-3)
@@ -174,7 +204,7 @@ class SentimentClassifier:
                  ('LogisticRegression', LogisticRegression(random_state=seed))
              ]))
         )
-        scoring = 'f1'
+        scoring = 'accuracy'
         n_folds = 10
         results, names = [], []
         for name, model in pipelines:
@@ -186,10 +216,13 @@ class SentimentClassifier:
             msg = "%s: %f (+/- %f)" % (name, cv_results.mean(), cv_results.std())
             print(msg)
 
+
 if __name__ == '__main__':
     # DataSpider.Preprocessor().get_new_data()
-    text = '东西收到了，小巧轻便，看着挺不错的，还没有使用，应该没问题。'
+    text = '收到！用后才知道！快递可以！'
     classifier = SentimentClassifier()
+    # classifier.train()
+    classifier.plot_learning_curve()
     # classifier.show_heat_map()
     # classifier.show_heat_map_to()
     classifier.choose_best_model()
