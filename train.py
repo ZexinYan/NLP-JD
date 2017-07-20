@@ -1,37 +1,33 @@
 #coding:utf-8
-import pandas as pd
-import numpy as np
-import os
 import codecs
+import os
 import pickle
-import DataSpider
-from sklearn.utils import shuffle
-from sklearn.model_selection import KFold, cross_val_score, train_test_split
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from sklearn.ensemble import AdaBoostClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC, LinearSVC
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import Perceptron
 from sklearn.linear_model import SGDClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.pipeline import Pipeline
+from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.model_selection import learning_curve
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.feature_selection import SelectFromModel
-# # from xgboost import XGBRegressor
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC, LinearSVC
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import column_or_1d
+from sklearn.utils import shuffle
+import Preprocessor
 sns.set_style("whitegrid")
 
 
 class SentimentClassifier:
-    def __init__(self, filename='JD_train.csv'):
-        self.model = None
-        self.load_model()
-        self.preprocessor = DataSpider.Preprocessor()
+    def __init__(self, filename='./corpus/train.csv'):
         if os.path.exists(filename):
             data = pd.read_csv(filename)
             self.data = shuffle(data)
@@ -39,11 +35,14 @@ class SentimentClassifier:
             Y_data = column_or_1d(data[:]['sentiment'], warn=True)
             self.X_train, self.X_val,\
             self.y_train, self.y_val = train_test_split(X_data, Y_data, test_size=0.3, random_state=1)
+            self.model = None
+            self.load_model()
+            self.preprocessor = Preprocessor.Preprocessor()
         else:
             print('No Source!')
-            self.preprocessor.get_new_data()
+            self.preprocessor.process_data()
 
-    def load_model(self, filename='model.pickle'):
+    def load_model(self, filename='./model/model.pickle'):
         if os.path.exists(filename):
             with codecs.open(filename, 'rb') as f:
                 f = open(filename, 'rb')
@@ -51,7 +50,7 @@ class SentimentClassifier:
         else:
             self.train()
 
-    def save_model(self, filename='model.pickle'):
+    def save_model(self, filename='./model/model.pickle'):
         with codecs.open(filename, 'wb') as f:
             pickle.dump(self.model, f)
 
@@ -63,7 +62,25 @@ class SentimentClassifier:
 
     def predict(self, sentence):
         vec = self.preprocessor.sentence2vec(sentence)
-        print(self.model.predict(vec))
+        return self.model.predict(vec)
+
+    def predict_test_set(self, sentences, pos_file='./test/pos_test.txt', neg_file='./test/neg_test.txt'):
+        pos_set = []
+        neg_set = []
+        for each in sentences:
+            score = self.predict(each)
+            if score == 1:
+                pos_set.append(each)
+            elif score == -1:
+                neg_set.append(each)
+        with codecs.open(pos_file, 'w', 'utf-8') as f:
+            for each in pos_set:
+                f.write(each + '\n')
+            f.close()
+        with codecs.open(neg_file, 'w', 'utf-8') as f:
+            for each in neg_set:
+                f.write(each + '\n')
+            f.close()
 
     def show_heat_map(self):
             pd.set_option('precision', 2)
@@ -219,11 +236,15 @@ class SentimentClassifier:
 
 if __name__ == '__main__':
     # DataSpider.Preprocessor().get_new_data()
-    text = '收到！用后才知道！快递可以！'
     classifier = SentimentClassifier()
-    # classifier.train()
+    classifier.train()
     classifier.plot_learning_curve()
     # classifier.show_heat_map()
     # classifier.show_heat_map_to()
     classifier.choose_best_model()
     # classifier.predict(text)
+    # test_set = []
+    # with codecs.open('./test/test.txt', 'r', 'utf-8') as f:
+    #     for each in f.readlines():
+    #         test_set.append(each)
+    # classifier.predict_test_set(test_set)
